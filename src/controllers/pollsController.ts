@@ -4,7 +4,13 @@ import { Prisma, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export const createPoll = async (req: Request, res: Response) => {
+export const createPoll = async (
+  req: Request,
+  res: Response,
+  prismaInstance?: PrismaClient
+) => {
+  const prisma = prismaInstance || new PrismaClient();
+
   const {
     title,
     description,
