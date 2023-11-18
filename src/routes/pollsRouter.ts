@@ -1,9 +1,10 @@
-import { Router } from "express";
-import { createAccessCode, createPoll } from "../controllers/pollsController";
+import { Router, Request, Response } from "express";
+import { createPoll } from "../controllers/pollsController";
 
 const router = Router();
 
-router.post("/", createPoll);
-router.post("/:pollId/createAccessCode", createAccessCode);
+router.post("/", async (req: Request, res: Response) => {
+  await createPoll(req, res);
+});
 
 export default router;

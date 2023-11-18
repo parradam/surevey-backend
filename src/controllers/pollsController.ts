@@ -1,88 +1,65 @@
 import { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { Prisma, PrismaClient } from "@prisma/client";
+import { createPollRequestSchema } from "../schemas/pollSchemas";
 
-const prisma = new PrismaClient();
+interface CreatePollRequest {
+  title: string;
+  description?: string;
+  maxVotesPerOption: number;
+  maxVotesPerAccessCode: number;
+  closingAt: string;
+}
 
-export const createPoll = async (req: Request, res: Response) => {
-  const {
-    title,
-    description,
-    maxVotesPerOption,
-    maxVotesPerAccessCode,
-    closingAt,
-  } = req.body;
+export const createPoll = async (
+  req: Request,
+  res: Response,
+  prismaInstance?: PrismaClient
+) => {
+  const prisma = prismaInstance || new PrismaClient();
 
-  const accessCodeData: Prisma.AccessCodeCreateWithoutPollInput = {
-    type: "admin",
-    code: randomUUID(),
-  };
+  try {
+    const result = createPollRequestSchema.safeParse(req.body);
 
-  const pollData: Prisma.PollCreateInput = {
-    title,
-    description,
-    maxVotesPerOption,
-    maxVotesPerAccessCode,
-    closingAt,
-    accessCodes: { create: accessCodeData },
-  };
+    if (!result.success) {
+      console.error(result.error);
+      return res.status(400).json(result.error);
+    }
 
-  const poll = await prisma.poll.create({
-    data: pollData,
-    include: { accessCodes: { where: { type: "admin" } } },
-  });
+    const {
+      title,
+      description,
+      maxVotesPerOption,
+      maxVotesPerAccessCode,
+      closingAt,
+    }: CreatePollRequest = req.body;
 
-  res.json(poll);
-};
+    const accessCodeData: Prisma.AccessCodeCreateWithoutPollInput = {
+      type: "admin",
+      code: randomUUID(),
+    };
 
-export const createAccessCode = async (req: Request, res: Response) => {
-  const { pollId } = req.params;
-  const { code, type } = req.body;
+    const pollData: Prisma.PollCreateInput = {
+      title,
+      description,
+      maxVotesPerOption,
+      maxVotesPerAccessCode,
+      closingAt,
+      accessCodes: { create: accessCodeData },
+    };
 
-  if (!code) {
-    return res.status(400).json({ error: "Bad request: missing access code." });
-  }
+    const poll = await prisma.poll.create({
+      data: pollData,
+      include: { accessCodes: { where: { type: "admin" } } },
+    });
 
-  if (!pollId) {
-    return res.status(400).json({ error: "Bad request: missing poll ID." });
-  }
+    res.status(201).json(poll);
+  } catch (error) {
+    console.error("Error creating poll:", error);
 
-  const foundPoll = await prisma.poll.findUnique({
-    where: { id: Number(pollId) },
-  });
-
-  if (!foundPoll) {
-    return res.status(404).json({ error: "Not found: poll does not exist." });
-  }
-
-  const foundAccessCode = await prisma.accessCode.findUnique({
-    where: {
-      code,
-      pollId: Number(pollId),
-    },
-  });
-
-  if (!foundAccessCode) {
-    return res
-      .status(401)
-      .json({ error: "Unauthorized: access code does not exist." });
-  } else if (foundAccessCode.type !== "admin") {
-    return res.status(401).json({
-      error: "Unauthorized: you do not have permission to perform this action.",
+    res.status(500).json({
+      error: "Internal server error",
+      message: "Failed to create poll.",
     });
   }
-
-  const accessCodeData: Prisma.AccessCodeCreateInput = {
-    type,
-    code: randomUUID(),
-    poll: {
-      connect: { id: Number(pollId) },
-    },
-  };
-
-  const newAccessCode = await prisma.accessCode.create({
-    data: accessCodeData,
-  });
-
-  res.json(newAccessCode);
 };
