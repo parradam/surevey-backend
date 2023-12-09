@@ -22,7 +22,6 @@ export const createPoll = async (
     const result = createPollRequestSchema.safeParse(req.body);
 
     if (!result.success) {
-      console.error(result.error);
       return res.status(400).json(result.error);
     }
 
@@ -55,8 +54,6 @@ export const createPoll = async (
 
     res.status(201).json(poll);
   } catch (error) {
-    console.error("Error creating poll:", error);
-
     res.status(500).json({
       error: "Internal server error",
       message: "Failed to create poll.",
