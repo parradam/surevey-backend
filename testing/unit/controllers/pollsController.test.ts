@@ -9,13 +9,18 @@ describe("Polls controller", () => {
   });
 
   it("should create and return a poll when called with valid input", async () => {
+    const closingDate = new Date(
+      new Date().setDate(new Date().getDate() + 5)
+    ).toISOString();
+
     const req = {
       body: {
         title: "Thunder Client test with over 30 characters",
         description: "Still testing with new app",
         maxVotesPerOption: 1,
         maxVotesPerAccessCode: 1,
-        closingAt: "2024-01-31T23:59:59.000Z",
+        closingAt: closingDate,
+        // closingAt: "2099-01-31T23:59:59.000Z",
       },
     } as Request;
 
@@ -33,7 +38,7 @@ describe("Polls controller", () => {
         description: "Still testing with new app",
         maxVotesPerOption: 1,
         maxVotesPerAccessCode: 1,
-        closingAt: "2024-01-31T23:59:59.000Z",
+        closingAt: closingDate,
         accessCodes: { create: { type: "admin", code: expect.any(String) } },
       },
       include: { accessCodes: { where: { type: "admin" } } },
@@ -42,13 +47,17 @@ describe("Polls controller", () => {
   });
 
   it("should return an error with status code 400 when called with the appropriate missing fields", async () => {
+    const closingDate = new Date(
+      new Date().setDate(new Date().getDate() + 5)
+    ).toISOString();
+
     const req = {
       body: {
         title: "Thunder Client test with over 30 characters",
         description: "Still testing with new app",
         // maxVotesPerOption removed
         // maxVotesPerAccessCode removed
-        closingAt: "2024-01-31T23:59:59.000Z",
+        closingAt: closingDate,
       },
     } as Request;
 
@@ -114,6 +123,9 @@ describe("Polls controller", () => {
 
   it("should return an error with status code 500 if there is a database error", async () => {
     const mockedPrismaWithError = mockPrismaWithError();
+    const closingDate = new Date(
+      new Date().setDate(new Date().getDate() + 5)
+    ).toISOString();
 
     const req = {
       body: {
@@ -121,7 +133,7 @@ describe("Polls controller", () => {
         description: "Still testing with new app",
         maxVotesPerOption: 1,
         maxVotesPerAccessCode: 1,
-        closingAt: "2024-01-31T23:59:59.000Z",
+        closingAt: closingDate,
       },
     } as Request;
 
