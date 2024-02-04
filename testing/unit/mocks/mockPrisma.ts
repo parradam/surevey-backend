@@ -20,5 +20,14 @@ export const mockPrismaWithError = () => {
     })
   );
 
+  jest.spyOn(prisma.poll, "findUnique").mockRejectedValue(
+    new PrismaClientKnownRequestError("There was an error", {
+      code: "SOME_ERROR_CODE",
+      clientVersion: "1.0.0",
+      meta: {},
+      batchRequestIdx: 0,
+    })
+  );
+
   return prisma;
 };

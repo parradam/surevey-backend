@@ -33,7 +33,7 @@ describe("createOption", () => {
       id: 111,
       pollId: Number(req.params.pollId),
       option: req.body.option,
-    } as unknown as Option);
+    } as Option);
 
     await createOption(req, res, prisma);
 

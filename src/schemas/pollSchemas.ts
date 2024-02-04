@@ -20,3 +20,16 @@ export const createPollRequestSchema = z.object({
       return closingDate.getTime() - currentDate.getTime() > 0;
     }, "The closing date must be in the future."),
 });
+
+export const viewPollParamsSchema = z.object({
+  pollId: z.string().refine(
+    (value) => {
+      const coercedValue = Number(value);
+      return !isNaN(coercedValue);
+    },
+    {
+      message: "The poll ID must be a number.",
+    }
+  ),
+  accessCode: z.string().min(30, "The access code format is incorrect."),
+});
