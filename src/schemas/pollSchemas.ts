@@ -33,3 +33,25 @@ export const viewPollParamsSchema = z.object({
   ),
   accessCode: z.string().min(30, "The access code format is incorrect."),
 });
+
+export const createVoteParamsSchema = z.object({
+  pollId: z.string().refine(
+    (value) => {
+      const coercedValue = Number(value);
+      return !isNaN(coercedValue);
+    },
+    {
+      message: "The poll ID must be a number.",
+    }
+  ),
+  accessCode: z.string().min(30, "The access code format is incorrect."),
+  optionId: z.string().refine(
+    (value) => {
+      const coercedValue = Number(value);
+      return !isNaN(coercedValue);
+    },
+    {
+      message: "The option ID must be a number.",
+    }
+  ),
+});

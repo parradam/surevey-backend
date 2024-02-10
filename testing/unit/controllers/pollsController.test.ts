@@ -2,8 +2,13 @@ import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 import { Request, Response } from "express";
 import prisma from "../mocks/newMockPrisma";
 import { mockedPrismaClient, mockPrismaWithError } from "../mocks/mockPrisma";
-import { Poll, AccessCode } from "@prisma/client";
-import { createPoll, viewPoll } from "../../../src/controllers/pollsController";
+import { Poll, AccessCode, Vote } from "@prisma/client";
+import {
+  createPoll,
+  createVote,
+  viewPoll,
+} from "../../../src/controllers/pollsController";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 describe("Polls controller", () => {
   beforeEach(() => {
@@ -319,6 +324,175 @@ describe("Polls controller", () => {
         expect.objectContaining({
           error: "Internal server error",
           message: "Failed to fetch poll.",
+        })
+      );
+    });
+  });
+
+  describe("createVote", () => {
+    it("should create and return a vote when called with valid input", async () => {
+      const req = {
+        params: {
+          pollId: "1",
+          accessCode: "084004f4-600e-4097-bd5a-6b146b06bb01",
+          optionId: "3",
+        },
+      } as unknown as Request;
+
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      } as unknown as Response;
+
+      prisma.poll.findUnique.mockResolvedValue({
+        id: Number(req.params.pollId),
+        closingAt: "2300-01-01T23:59:59.000Z",
+        options: [{ id: Number(req.params.optionId) }],
+      } as unknown as Poll);
+      prisma.accessCode.findUnique.mockResolvedValue({
+        id: 50,
+        code: req.params.accessCode,
+        type: "vote",
+        pollId: Number(req.params.pollId),
+      } as AccessCode);
+      prisma.vote.create.mockResolvedValue({
+        id: 100,
+        optionId: Number(req.params.optionId),
+        accessCodeId: 999,
+        createdAt: "2024-02-07T23:26:41.535Z",
+        updatedAt: "2024-02-07T23:26:41.535Z",
+      } as unknown as Vote);
+
+      await createVote(req, res, prisma);
+
+      expect(prisma.vote.create).toHaveBeenCalledTimes(1);
+      expect(prisma.vote.create).toHaveBeenCalledWith({
+        data: {
+          option: {
+            connect: {
+              id: Number(req.params.optionId),
+            },
+          },
+          accessCode: {
+            connect: {
+              id: 50,
+            },
+          },
+        },
+      });
+
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({
+        id: 100,
+        optionId: Number(req.params.optionId),
+        accessCodeId: 999,
+        createdAt: "2024-02-07T23:26:41.535Z",
+        updatedAt: "2024-02-07T23:26:41.535Z",
+      });
+    });
+
+    it("should return an error with status code 400 when called with the appropriate missing fields", async () => {
+      const req = {
+        params: {
+          pollId: "incorrectPollId",
+          accessCode: "084004f4-600e-4097-bd5a-6b146b06bb01",
+          optionId: "3",
+        },
+      } as unknown as Request;
+
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      } as unknown as Response;
+
+      prisma.poll.findUnique.mockResolvedValue({
+        id: Number(req.params.pollId),
+        options: [{ id: Number(req.params.optionId) }],
+      } as unknown as Poll);
+      prisma.accessCode.findUnique.mockResolvedValue({
+        id: 50,
+        code: req.params.accessCode,
+        type: "vote",
+        pollId: Number(req.params.pollId),
+      } as AccessCode);
+      prisma.vote.create.mockResolvedValue({
+        id: 100,
+        optionId: Number(req.params.optionId),
+        accessCodeId: 999,
+        createdAt: "2024-02-07T23:26:41.535Z",
+        updatedAt: "2024-02-07T23:26:41.535Z",
+      } as unknown as Vote);
+
+      await createVote(req, res, prisma);
+
+      expect(prisma.vote.create).toHaveBeenCalledTimes(0);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      // TODO check for error in res.json
+    });
+
+    it("should return an error with status code 400 when the closingAt date is in the past", async () => {
+      const req = {
+        params: {
+          pollId: "1",
+          accessCode: "084004f4-600e-4097-bd5a-6b146b06bb01",
+          optionId: "3",
+        },
+      } as unknown as Request;
+
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      } as unknown as Response;
+
+      prisma.poll.findUnique.mockResolvedValue({
+        id: Number(req.params.pollId),
+        closingAt: "2000-01-01T23:59:59.000Z",
+      } as unknown as Poll);
+
+      await createVote(req, res, prisma);
+
+      expect(prisma.poll.create).toHaveBeenCalledTimes(0);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: "Bad request",
+          message: "This poll has closed.",
+        })
+      );
+    });
+
+    it("should return an error with status code 500 if there is a database error", async () => {
+      const req = {
+        params: {
+          pollId: "1",
+          accessCode: "084004f4-600e-4097-bd5a-6b146b06bb01",
+          optionId: "3",
+        },
+      } as unknown as Request;
+
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      } as unknown as Response;
+
+      prisma.poll.findUnique.mockRejectedValue(
+        new PrismaClientKnownRequestError("There was an error", {
+          code: "SOME_ERROR_CODE",
+          clientVersion: "1.0.0",
+          meta: {},
+          batchRequestIdx: 0,
+        })
+      );
+
+      await createVote(req, res, prisma);
+
+      expect(prisma.poll.findUnique).toHaveBeenCalledTimes(1);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: "Internal server error",
+          message: "Failed to create vote.",
         })
       );
     });
